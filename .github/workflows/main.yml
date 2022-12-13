@@ -1,0 +1,67 @@
+name: Github CI
+env:
+  MYSQL_DATABASE: teste
+  MYSQL_USER: root
+  MYSQL_PASSWORD: 123123
+  MYSQL_HOST: mysql-master
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  pipeline:
+    runs-on: ubuntu-latest # Os comandos serão executados em um sistema operacional Linux
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_DATABASE: teste
+          MYSQL_USER: user
+          MYSQL_PASSWORD: 123123
+          MYSQL_ROOT_PASSWORD: 123123
+        ports:
+          - 3306
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
+
+
+    steps:
+      - name: Git Checkout
+        uses: actions/checkout@v2 # Faz o checkout do código recebido
+      
+      - name: Codecov
+        uses: codecov/codecov-action@v3
+
+      - name: Verify MySQL connection
+        run: |
+          mysql --version
+          sudo apt-get install -y mysql-client
+          mysql --host 127.0.0.1 --port ${{ job.services.mysql.ports['3306'] }} -uroot -p123123
+
+      - name: Set up Python 3.7
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.7
+
+      - name: Set up MariaBd
+        run: |
+          sudo apt install libmariadb3 libmariadb-dev
+
+      - name: Install dependencies
+        run: |
+          sudo /etc/init.d/mysql start
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      # - name: Build
+      #   run: |
+      #     if [ -f app.py ]; then python app.py; fi
+
+      - name: Unit Test
+        run: if [ -f requirements.txt ]; then  python -m unittest discover testesUnidade/ ; fi # Executada os testes de unidade
+
+      - name: Upload Coverage to Codecov
+        uses: codecov/codecov-action@v2
